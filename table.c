@@ -14,6 +14,16 @@ Table* create_table() {
     return table;
 }
 
+//template for an example hash function
+static uint32_t hash(void *data) {
+    uint32_t hash = 0;
+    char *str = (char*)data;
+    while (*str) {
+        hash = hash * 31 + *str++;
+    }
+    return hash;
+}
+
 // Function to add an entry to the table
 TableEntry* add_to_table(Table* table, void *data) {
     if (table == NULL) {
@@ -23,7 +33,8 @@ TableEntry* add_to_table(Table* table, void *data) {
     if (new_entry == NULL) {
         return NULL; // Allocation failed
     }
-    new_entry->id = id;
+    new_entry->id = hash(data);
+    new_entry->data = data;
     new_entry->next = table->entries;
     new_entry->prev = NULL;
     if (table->entries != NULL) {

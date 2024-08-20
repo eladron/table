@@ -6,6 +6,7 @@
 // Define the TableEntry struct
 typedef struct TableEntry {
     uint32_t id;
+    void *data;
     struct TableEntry *prev;
     struct TableEntry *next;
 } TableEntry;
@@ -18,11 +19,7 @@ typedef struct {
 
 // Function declarations
 Table* create_table();
-<<<<<<< HEAD
-void add_to_table(Table* table, uint32_t id);
-=======
 TableEntry* add_to_table(Table* table, void* data);
->>>>>>> c7f2857 (Nothing)
 void remove_from_table(Table* table, uint32_t id);
 TableEntry* find_entry(Table* table, uint32_t id);
 
