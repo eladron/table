@@ -4,8 +4,8 @@
 #include <stdlib.h>
 
 // Function to create a new table
-Table* create_table() {
-    Table* table = (Table*)malloc(sizeof(Table));
+table_t* create_table() {
+    table_t* table = (table_t*)malloc(sizeof(table_t));
     if (table == NULL) {
         return NULL; // Allocation failed
     }
@@ -14,27 +14,23 @@ Table* create_table() {
     return table;
 }
 
-//template for an example hash function
-static uint32_t hash(void *data) {
-    uint32_t hash = 0;
-    char *str = (char*)data;
-    while (*str) {
-        hash = hash * 31 + *str++;
-    }
-    return hash;
-}
 
 // Function to add an entry to the table
-TableEntry* add_to_table(Table* table, void *data) {
-    if (table == NULL) {
-        return NULL; // Table is NULL
+table_entry_t* add_to_table(table_t* table, entry_key_t *key, void *value) {
+    if (table == NULL || key == NULL) {
+        return NULL; // table_t or key is NULL
     }
-    TableEntry* new_entry = (TableEntry*)malloc(sizeof(TableEntry));
+
+    if (find_entry(table, key) != NULL) {
+        return NULL; // Entry already exists
+    }
+
+    table_entry_t* new_entry = (table_entry_t*)malloc(sizeof(table_entry_t));
     if (new_entry == NULL) {
         return NULL; // Allocation failed
     }
-    new_entry->id = hash(data);
-    new_entry->data = data;
+    new_entry->key = key;
+    new_entry->value = value;
     new_entry->next = table->entries;
     new_entry->prev = NULL;
     if (table->entries != NULL) {
@@ -46,7 +42,8 @@ TableEntry* add_to_table(Table* table, void *data) {
     return new_entry;
 }
 
-static void pop_from_table(Table *table, TableEntry *entry) {
+// Function to pop an entry from the table
+static void pop_from_table(table_t *table, table_entry_t *entry) {
     if (entry->prev != NULL) {
         entry->prev->next = entry->next;
     } else {
@@ -57,16 +54,22 @@ static void pop_from_table(Table *table, TableEntry *entry) {
     }
 }
 
-static void free_entry(TableEntry *entry) {
-    free(entry->data);
+// Function to free an entry
+static void free_entry(table_entry_t *entry) {
+    free_key(entry->key);
+    free(entry->value);
     free(entry);
 }
 
 // Function to remove an entry from the table
-void remove_from_table(Table* table, uint32_t id) {
-    TableEntry* current = table->entries;
+void remove_from_table(table_t* table, entry_key_t *key) {
+    if (table == NULL || table->count == 0) {
+        return; // table_t is NULL or empty
+    }
+    uint32_t id = key->hash_id;
+    table_entry_t* current = table->entries;
     while (current != NULL) {
-        if (current->id == id) {
+        if (current->key->hash_id == id) {
             pop_from_table(table, current);
             free_entry(current);
             table->count--;
@@ -77,13 +80,14 @@ void remove_from_table(Table* table, uint32_t id) {
 }
 
 // Function to find an entry in the table
-TableEntry* find_entry(Table* table, uint32_t id) {
-    if (table == NULL) {
-        return NULL; // Table is NULL
+table_entry_t* find_entry(table_t* table, entry_key_t *key) {
+    if (table == NULL || table->count == 0) {
+        return NULL; // table_t is NULL or empty
     }
-    TableEntry* current = table->entries;
+    uint32_t id = key->hash_id;
+    table_entry_t* current = table->entries;
     while (current != NULL) {
-        if (current->id == id) {
+        if (current->key->hash_id == id) {
             // Move the found entry to the front of the table
             pop_from_table(table, current);
             if (current != table->entries) {
@@ -102,13 +106,13 @@ TableEntry* find_entry(Table* table, uint32_t id) {
 }
 
 // Function to destroy the table and free all entries
-void destroy_table(Table* table) {
+void destroy_table(table_t* table) {
     if (table == NULL) {
-        return; // Table is NULL
+        return; // table_t is NULL
     }
-    TableEntry* current = table->entries;
+    table_entry_t* current = table->entries;
     while (current != NULL) {
-        TableEntry* next = current->next;
+        table_entry_t* next = current->next;
         free_entry(current);
         current = next;
     }

@@ -1,27 +1,28 @@
 #ifndef TABLE_H
 #define TABLE_H
 
+#include "entry_key.h"
 #include <stdint.h>
 
 // Define the TableEntry struct
-typedef struct TableEntry {
-    uint32_t id;
-    void *data;
-    struct TableEntry *prev;
-    struct TableEntry *next;
-} TableEntry;
+typedef struct table_entry {
+    entry_key_t *key;
+    void *value;
+    struct table_entry *prev;
+    struct table_entry *next;
+} table_entry_t;
 
 // Define the Table struct
-typedef struct {
-    TableEntry* entries;
+typedef struct table {
+    table_entry_t* entries;
     uint32_t count;
-} Table;
+} table_t;
 
 // Function declarations
-Table* create_table();
-TableEntry* add_to_table(Table* table, void* data);
-void remove_from_table(Table* table, uint32_t id);
-TableEntry* find_entry(Table* table, uint32_t id);
-void destroy_table(Table* table);
+table_t* create_table();
+table_entry_t* add_to_table(table_t* table, entry_key_t *key, void *value);
+void remove_from_table(table_t* table, entry_key_t *key);
+table_entry_t* find_entry(table_t* table, entry_key_t *key);
+void destroy_table(table_t* table);
 
 #endif // TABLE_H
