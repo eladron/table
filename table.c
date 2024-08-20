@@ -9,8 +9,7 @@ table_t* create_table() {
     if (table == NULL) {
         return NULL; // Allocation failed
     }
-    table->entries = NULL;
-    table->count = 0;
+    memset(table, 0, sizeof(table_t));
     return table;
 }
 
@@ -31,12 +30,13 @@ table_entry_t* add_to_table(table_t* table, entry_key_t *key, void *value) {
     }
     new_entry->key = key;
     new_entry->value = value;
-    new_entry->next = table->entries;
+    uint32_t index = key->hash_id % TABLE_LENGTH;
+    new_entry->next = table->entries[index];
     new_entry->prev = NULL;
-    if (table->entries != NULL) {
-        table->entries->prev = new_entry;
+    if (table->entries[index] != NULL) {
+        table->entries[index]->prev = new_entry;
     }
-    table->entries = new_entry;
+    table->entries[index] = new_entry;
     table->count++;
 
     return new_entry;
@@ -47,7 +47,7 @@ static void pop_from_table(table_t *table, table_entry_t *entry) {
     if (entry->prev != NULL) {
         entry->prev->next = entry->next;
     } else {
-        table->entries = entry->next;
+        table->entries[entry->key->hash_id % TABLE_LENGTH] = entry->next;
     }
     if (entry->next != NULL) {
         entry->next->prev = entry->prev;
@@ -61,21 +61,29 @@ static void free_entry(table_entry_t *entry) {
     free(entry);
 }
 
+static table_entry_t* get_entry_by_id(table_t* table, uint32_t id) {
+    uint32_t index = id % TABLE_LENGTH;
+    table_entry_t* current = table->entries[index];
+    while (current != NULL) {
+        if (current->key->hash_id == id) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
 // Function to remove an entry from the table
 void remove_from_table(table_t* table, entry_key_t *key) {
     if (table == NULL || table->count == 0) {
         return; // table_t is NULL or empty
     }
     uint32_t id = key->hash_id;
-    table_entry_t* current = table->entries;
-    while (current != NULL) {
-        if (current->key->hash_id == id) {
-            pop_from_table(table, current);
-            free_entry(current);
-            table->count--;
-            return;
-        }
-        current = current->next;
+    table_entry_t *entry = get_entry_by_id(table, id);
+    if (entry != NULL) {
+        pop_from_table(table, entry);
+        free_entry(entry);
+        table->count--;
     }
 }
 
@@ -85,24 +93,21 @@ table_entry_t* find_entry(table_t* table, entry_key_t *key) {
         return NULL; // table_t is NULL or empty
     }
     uint32_t id = key->hash_id;
-    table_entry_t* current = table->entries;
-    while (current != NULL) {
-        if (current->key->hash_id == id) {
-            // Move the found entry to the front of the table
-            pop_from_table(table, current);
-            if (current != table->entries) {
-                current->next = table->entries;
-                if (table->entries != NULL) {
-                    table->entries->prev = current;
-                }
-                table->entries = current;
-                current->prev = NULL;
+    uint32_t index = id % TABLE_LENGTH;
+    table_entry_t* entry = get_entry_by_id(table, id);
+    if (entry != NULL) {
+        pop_from_table(table, entry);
+        if (entry != table->entries[index]) {
+            entry->next = table->entries[index];
+            if (table->entries[index] != NULL) {
+                table->entries[index]->prev = entry;
             }
-            return current;
+            table->entries[index] = entry;
+            entry->prev = NULL;
         }
-        current = current->next;
     }
-    return NULL; // Entry not found
+
+    return entry; 
 }
 
 // Function to destroy the table and free all entries
@@ -110,11 +115,13 @@ void destroy_table(table_t* table) {
     if (table == NULL) {
         return; // table_t is NULL
     }
-    table_entry_t* current = table->entries;
-    while (current != NULL) {
-        table_entry_t* next = current->next;
-        free_entry(current);
-        current = next;
+    for (uint32_t i = 0; i < TABLE_LENGTH; i++) {
+        table_entry_t* current = table->entries[i];
+        while (current != NULL) {
+            table_entry_t* next = current->next;
+            free_entry(current);
+            current = next;
+        }
     }
     free(table);
 }

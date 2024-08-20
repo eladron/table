@@ -4,6 +4,8 @@
 #include "entry_key.h"
 #include <stdint.h>
 
+#define TABLE_LENGTH 16
+
 // Define the TableEntry struct
 typedef struct table_entry {
     entry_key_t *key;
@@ -14,7 +16,7 @@ typedef struct table_entry {
 
 // Define the Table struct
 typedef struct table {
-    table_entry_t* entries;
+    table_entry_t* entries[TABLE_LENGTH];
     uint32_t count;
 } table_t;
 

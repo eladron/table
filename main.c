@@ -11,8 +11,10 @@ int test_create_table() {
     if (table == NULL) {
         return 0;
     }
-    if (table->entries != NULL) {
-        return 0;
+    for (uint32_t i = 0; i < TABLE_LENGTH; i++) {
+        if (table->entries[i] != NULL) {
+            return 0;
+        }
     }
     if (table->count != 0) {
         return 0;
@@ -172,12 +174,14 @@ int test_add_already_exists() {
     if (te == NULL) {
         return 0;
     }
-    table_entry_t *te2 = add_to_table(table, key2, create_dns_data_entry(TEST_ADDRESS));
+    dns_data_entry_t *data = create_dns_data_entry(TEST_ADDRESS);
+    table_entry_t *te2 = add_to_table(table, key2, data);
     if (te2 != NULL) {
         return 0;
     }
     destroy_table(table);
     free_key(key2);
+    free(data);
     return 1;
     
 }
