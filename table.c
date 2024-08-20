@@ -57,13 +57,18 @@ static void pop_from_table(Table *table, TableEntry *entry) {
     }
 }
 
+static void free_entry(TableEntry *entry) {
+    free(entry->data);
+    free(entry);
+}
+
 // Function to remove an entry from the table
 void remove_from_table(Table* table, uint32_t id) {
     TableEntry* current = table->entries;
     while (current != NULL) {
         if (current->id == id) {
             pop_from_table(table, current);
-            free(current);
+            free_entry(current);
             table->count--;
             return;
         }
@@ -94,4 +99,18 @@ TableEntry* find_entry(Table* table, uint32_t id) {
         current = current->next;
     }
     return NULL; // Entry not found
+}
+
+// Function to destroy the table and free all entries
+void destroy_table(Table* table) {
+    if (table == NULL) {
+        return; // Table is NULL
+    }
+    TableEntry* current = table->entries;
+    while (current != NULL) {
+        TableEntry* next = current->next;
+        free_entry(current);
+        current = next;
+    }
+    free(table);
 }
