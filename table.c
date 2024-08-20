@@ -1,6 +1,7 @@
 #include "table.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 // Function to create a new table
 Table* create_table() {
@@ -34,19 +35,23 @@ TableEntry* add_to_table(Table* table, void *data) {
     return new_entry;
 }
 
+static void pop_from_table(Table *table, TableEntry *entry) {
+    if (entry->prev != NULL) {
+        entry->prev->next = entry->next;
+    } else {
+        table->entries = entry->next;
+    }
+    if (entry->next != NULL) {
+        entry->next->prev = entry->prev;
+    }
+}
+
 // Function to remove an entry from the table
 void remove_from_table(Table* table, uint32_t id) {
     TableEntry* current = table->entries;
     while (current != NULL) {
         if (current->id == id) {
-            if (current->prev != NULL) {
-                current->prev->next = current->next;
-            } else {
-                table->entries = current->next;
-            }
-            if (current->next != NULL) {
-                current->next->prev = current->prev;
-            }
+            pop_from_table(table, current);
             free(current);
             table->count--;
             return;
@@ -63,6 +68,16 @@ TableEntry* find_entry(Table* table, uint32_t id) {
     TableEntry* current = table->entries;
     while (current != NULL) {
         if (current->id == id) {
+            // Move the found entry to the front of the table
+            pop_from_table(table, current);
+            if (current != table->entries) {
+                current->next = table->entries;
+                if (table->entries != NULL) {
+                    table->entries->prev = current;
+                }
+                table->entries = current;
+                current->prev = NULL;
+            }
             return current;
         }
         current = current->next;
