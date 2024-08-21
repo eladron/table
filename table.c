@@ -1,127 +1,122 @@
 #include "table.h"
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
+//template for an example hash function
+static uint32_t hash(entry_key_t *key) {
+    uint32_t hash = 5381;
+    char *str = (char*)(key->data);
+    for (uint32_t i = 0; i < key->size; i++) {
+        hash = ((hash << 5) + hash) + str[i];
+    }
+    return hash;
+}
+
 // Function to create a new table
-table_t* create_table() {
+table_t* init_table() {
     table_t* table = (table_t*)malloc(sizeof(table_t));
     if (table == NULL) {
         return NULL; // Allocation failed
     }
-    memset(table, 0, sizeof(table_t));
+    table->count = 0;
+    for (uint32_t i = 0; i < TABLE_LENGTH; i++) {
+        table->entries[i].ptr = NULL;
+        table->entries[i].key = 0;
+    }
     return table;
 }
 
-
 // Function to add an entry to the table
-table_entry_t* add_to_table(table_t* table, entry_key_t *key, void *value) {
-    if (table == NULL || key == NULL) {
-        return NULL; // table_t or key is NULL
+void table_add(table_entry_t *entry, table_t* table, entry_key_t *key_data) {
+    if (table == NULL || key_data == NULL) {
+        goto fail; // table_t or entry_key_t is NULL
     }
 
-    if (find_entry(table, key) != NULL) {
-        return NULL; // Entry already exists
+    uint32_t key = hash(key_data);
+    if (table_find(table, key) != NULL) {
+        goto fail; // Entry with the same key already exists
     }
-
-    table_entry_t* new_entry = (table_entry_t*)malloc(sizeof(table_entry_t));
-    if (new_entry == NULL) {
-        return NULL; // Allocation failed
-    }
-    new_entry->key = key;
-    new_entry->value = value;
-    uint32_t index = key->hash_id % TABLE_LENGTH;
-    new_entry->next = table->entries[index];
-    new_entry->prev = NULL;
-    if (table->entries[index] != NULL) {
-        table->entries[index]->prev = new_entry;
-    }
-    table->entries[index] = new_entry;
-    table->count++;
-
-    return new_entry;
-}
-
-// Function to pop an entry from the table
-static void pop_from_table(table_t *table, table_entry_t *entry) {
-    if (entry->prev != NULL) {
-        entry->prev->next = entry->next;
-    } else {
-        table->entries[entry->key->hash_id % TABLE_LENGTH] = entry->next;
-    }
-    if (entry->next != NULL) {
-        entry->next->prev = entry->prev;
-    }
-}
-
-// Function to free an entry
-static void free_entry(table_entry_t *entry) {
-    free_key(entry->key);
-    free(entry->value);
-    free(entry);
-}
-
-static table_entry_t* get_entry_by_id(table_t* table, uint32_t id) {
-    uint32_t index = id % TABLE_LENGTH;
-    table_entry_t* current = table->entries[index];
-    while (current != NULL) {
-        if (current->key->hash_id == id) {
-            return current;
+    
+    int index = key % TABLE_LENGTH;
+    for (int i = index, j = index; i >= 0 || j < TABLE_LENGTH; i--, j++) {
+        if (i >=0 && table->entries[i].key == 0 && table->entries[i].ptr == NULL) {
+            index = i;
+            break;
         }
-        current = current->next;
+        if (j <TABLE_LENGTH && table->entries[j].key == 0 && table->entries[j].ptr == NULL) {
+            index = j;
+            break;
+        }
     }
-    return NULL;
+
+    table->entries[index].key = key;
+    table->entries[index].ptr = entry;
+    entry->ptr = &table->entries[index];
+    entry->key = key;
+    table->count++;
+    return;
+fail:
+    entry->ptr = NULL;
+    entry->key = 0;
+    return;
+}
+
+static int get_index_by_key(table_t* table, uint32_t key) {
+    int index = key % TABLE_LENGTH;
+    for(int i=index, j=index; i >= 0 || j < TABLE_LENGTH; i--, j++) {
+        if (i >= 0 && table->entries[i].key == key) {
+            return i;
+        }
+        if (j < TABLE_LENGTH && table->entries[j].key == key) {
+            return j;
+        }
+    }
+    return -1;
 }
 
 // Function to remove an entry from the table
-void remove_from_table(table_t* table, entry_key_t *key) {
+void table_del(table_t* table, uint32_t key) {
     if (table == NULL || table->count == 0) {
         return; // table_t is NULL or empty
     }
-    uint32_t id = key->hash_id;
-    table_entry_t *entry = get_entry_by_id(table, id);
-    if (entry != NULL) {
-        pop_from_table(table, entry);
-        free_entry(entry);
-        table->count--;
-    }
+    int index = get_index_by_key(table, key);
+    table->entries[index].key = 0;
+    table->entries[index].ptr = NULL;
+    table->count--;
+}
+
+static void swap_entries(table_t* table, int index1, int index2) {
+    table_entry_t *tmp = table->entries[index1].ptr;
+    uint32_t tmp_key = table->entries[index1].key;
+    table->entries[index1].key = table->entries[index2].key;
+    table->entries[index2].key = tmp_key;
+    table->entries[index1].ptr = table->entries[index2].ptr;
+    table->entries[index2].ptr = tmp;
+    table->entries[index1].ptr->ptr = &table->entries[index1];
+    table->entries[index2].ptr->ptr = &table->entries[index2];
 }
 
 // Function to find an entry in the table
-table_entry_t* find_entry(table_t* table, entry_key_t *key) {
+table_entry_t* table_find(table_t* table, uint32_t key) {
     if (table == NULL || table->count == 0) {
         return NULL; // table_t is NULL or empty
     }
-    uint32_t id = key->hash_id;
-    uint32_t index = id % TABLE_LENGTH;
-    table_entry_t* entry = get_entry_by_id(table, id);
-    if (entry != NULL) {
-        pop_from_table(table, entry);
-        if (entry != table->entries[index]) {
-            entry->next = table->entries[index];
-            if (table->entries[index] != NULL) {
-                table->entries[index]->prev = entry;
-            }
-            table->entries[index] = entry;
-            entry->prev = NULL;
-        }
+    
+    int supposed_index = key % TABLE_LENGTH;
+    int index = get_index_by_key(table, key);
+    if (index == -1) {
+        return NULL;
     }
-
-    return entry; 
+    if (table->entries[supposed_index].key != key) {
+        swap_entries(table, supposed_index, index);
+    }
+    return table->entries[supposed_index].ptr;
 }
 
 // Function to destroy the table and free all entries
-void destroy_table(table_t* table) {
+void free_table(table_t* table) {
     if (table == NULL) {
         return; // table_t is NULL
-    }
-    for (uint32_t i = 0; i < TABLE_LENGTH; i++) {
-        table_entry_t* current = table->entries[i];
-        while (current != NULL) {
-            table_entry_t* next = current->next;
-            free_entry(current);
-            current = next;
-        }
     }
     free(table);
 }

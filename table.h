@@ -3,28 +3,29 @@
 
 #include "entry_key.h"
 #include <stdint.h>
+#include <stddef.h>
 
-#define TABLE_LENGTH 16
+#define TABLE_LENGTH 1024
+#define TABLE_ENTRY(ptr, type, member) ((type*)((char*)(ptr) - offsetof(type, member)))
+
 
 // Define the TableEntry struct
 typedef struct table_entry {
-    entry_key_t *key;
-    void *value;
-    struct table_entry *prev;
-    struct table_entry *next;
+    uint32_t key;
+    struct table_entry *ptr;
 } table_entry_t;
 
 // Define the Table struct
 typedef struct table {
-    table_entry_t* entries[TABLE_LENGTH];
+    table_entry_t entries[TABLE_LENGTH];
     uint32_t count;
 } table_t;
 
 // Function declarations
-table_t* create_table();
-table_entry_t* add_to_table(table_t* table, entry_key_t *key, void *value);
-void remove_from_table(table_t* table, entry_key_t *key);
-table_entry_t* find_entry(table_t* table, entry_key_t *key);
-void destroy_table(table_t* table);
+table_t* init_table();
+void table_add(table_entry_t *entry, table_t* table, entry_key_t *key_data);
+void table_del(table_t* table, uint32_t key);
+table_entry_t* table_find(table_t* table, uint32_t key);
+void free_table(table_t* table);
 
 #endif // TABLE_H
